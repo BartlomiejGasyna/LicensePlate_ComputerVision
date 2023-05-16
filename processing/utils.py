@@ -103,11 +103,18 @@ def perform_processing(image: np.ndarray) -> str:
     cv2.createTrackbar('brightness', 'image', 28, 255, nothing)
     cv2.createTrackbar('contrast', 'image', 113, 130, nothing)
 
-    cv2.createTrackbar('sigma0', 'image', 2, 100, nothing)
+    cv2.createTrackbar('sigma0', 'image', 5, 100, nothing)
     cv2.createTrackbar('sigma1', 'image', 11, 100, nothing)
     cv2.createTrackbar('sigma2', 'image', 14, 100, nothing)
     
-    resized = cv2.resize(image, (640, 400), cv2.INTER_AREA)
+    # resized = cv2.resize(image, (640, 400), cv2.INTER_AREA)
+
+    if image.shape[0] > image.shape[1]:
+        dstx, dsty = 720, 960
+    else:
+        dstx, dsty = 960, 720
+
+    resized = cv2.resize(image, (dstx, dsty), cv2.INTER_AREA)
 
     
     while True:
@@ -149,7 +156,6 @@ def perform_processing(image: np.ndarray) -> str:
         g2 = cv2.GaussianBlur(img_blur, (gw2, gw2), gs2)
         ret, thg = cv2.threshold(g2-g1, 127, 255, cv2.THRESH_BINARY)
 
-        thg = cv2.Canny(thg, 40, 120, apertureSize=3)
 
         cv2.imshow('canny', thg)
         contours, hier = cv2.findContours(thg, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_NONE)
@@ -161,6 +167,7 @@ def perform_processing(image: np.ndarray) -> str:
             x ,y, w, h = cv2.boundingRect(contours[i])
             a=w*h    
             aspectRatio = float(w)/h
+            # if  aspectRatio >= 2 and a > 20000:          
             if  aspectRatio >= 2:          
                 approx = cv2.approxPolyDP(contours[i], 0.05* cv2.arcLength(contours[i], True), True)
                 if len(approx) == 4 and x>12  :
@@ -169,8 +176,11 @@ def perform_processing(image: np.ndarray) -> str:
                     start_x=x
                     start_y=y
                     end_x=start_x+width
-                    end_y=start_y+height      
-                    cv2.rectangle(img_cpy, (start_x,start_y), (end_x,end_y), (0,0,255),3)
+                    end_y=start_y+height 
+                    color = (0, 0, 255)
+                    if a < 20_000:
+                        color = (220, 220, 220)     
+                    cv2.rectangle(img_cpy, (start_x,start_y), (end_x,end_y), color, 3)
                     cv2.putText(img_cpy, "rectangle "+str(x)+" , " + str(y-5), (x, y-5), cv2.FONT_HERSHEY_COMPLEX, 0.5, (0, 0, 0))
                 
         cv2.imshow('image', img_cpy)
