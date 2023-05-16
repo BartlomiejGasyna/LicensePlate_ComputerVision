@@ -97,15 +97,15 @@ def perform_processing(image: np.ndarray) -> str:
     # creating trackbars for red color change
     cv2.createTrackbar('blur_main', 'image', 3, 20, nothing)
 
-    cv2.createTrackbar('blur1', 'image', 9, 50, nothing)
+    cv2.createTrackbar('blur1', 'image', 3, 50, nothing)
     cv2.createTrackbar('blur2', 'image', 10, 50, nothing)
 
-    cv2.createTrackbar('brightness', 'image', 130, 255, nothing)
-    cv2.createTrackbar('contrast', 'image', 59, 130, nothing)
+    cv2.createTrackbar('brightness', 'image', 28, 255, nothing)
+    cv2.createTrackbar('contrast', 'image', 113, 130, nothing)
 
     cv2.createTrackbar('sigma0', 'image', 2, 100, nothing)
-    cv2.createTrackbar('sigma1', 'image', 14, 100, nothing)
-    cv2.createTrackbar('sigma2', 'image', 19, 100, nothing)
+    cv2.createTrackbar('sigma1', 'image', 11, 100, nothing)
+    cv2.createTrackbar('sigma2', 'image', 14, 100, nothing)
     
     resized = cv2.resize(image, (640, 400), cv2.INTER_AREA)
 
@@ -149,6 +149,9 @@ def perform_processing(image: np.ndarray) -> str:
         g2 = cv2.GaussianBlur(img_blur, (gw2, gw2), gs2)
         ret, thg = cv2.threshold(g2-g1, 127, 255, cv2.THRESH_BINARY)
 
+        thg = cv2.Canny(thg, 40, 120, apertureSize=3)
+
+        cv2.imshow('canny', thg)
         contours, hier = cv2.findContours(thg, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_NONE)
 
         for i in range(len(contours)):
@@ -158,9 +161,9 @@ def perform_processing(image: np.ndarray) -> str:
             x ,y, w, h = cv2.boundingRect(contours[i])
             a=w*h    
             aspectRatio = float(w)/h
-            if  aspectRatio >= 2.5:          
+            if  aspectRatio >= 2:          
                 approx = cv2.approxPolyDP(contours[i], 0.05* cv2.arcLength(contours[i], True), True)
-                if len(approx) == 4 and x>15  :
+                if len(approx) == 4 and x>12  :
                     width=w
                     height=h   
                     start_x=x
