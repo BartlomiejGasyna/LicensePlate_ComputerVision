@@ -95,16 +95,18 @@ def perform_processing(image: np.ndarray) -> str:
     
     cv2.namedWindow('image')
     # creating trackbars for red color change
-    cv2.createTrackbar('blur_main', 'image', 2, 20, nothing)
+    cv2.createTrackbar('blur_main', 'image', 3, 20, nothing)
 
-    cv2.createTrackbar('blur1', 'image', 7, 50, nothing)
-    cv2.createTrackbar('blur2', 'image', 6, 50, nothing)
+    cv2.createTrackbar('blur1', 'image', 9, 50, nothing)
+    cv2.createTrackbar('blur2', 'image', 10, 50, nothing)
 
-    cv2.createTrackbar('brightness', 'image', 0, 255, nothing)
-    cv2.createTrackbar('contrast', 'image', 100, 130, nothing)
+    cv2.createTrackbar('brightness', 'image', 130, 255, nothing)
+    cv2.createTrackbar('contrast', 'image', 59, 130, nothing)
+
+    cv2.createTrackbar('sigma0', 'image', 2, 100, nothing)
+    cv2.createTrackbar('sigma1', 'image', 14, 100, nothing)
+    cv2.createTrackbar('sigma2', 'image', 19, 100, nothing)
     
-    # cv2.createTrackbar('canny_th1', 'image', 0, 255, nothing)
-    # cv2.createTrackbar('canny_th2', 'image', 0, 255, nothing)
     resized = cv2.resize(image, (640, 400), cv2.INTER_AREA)
 
     
@@ -120,52 +122,61 @@ def perform_processing(image: np.ndarray) -> str:
         brightness = cv2.getTrackbarPos('brightness', 'image')
         contrast = cv2.getTrackbarPos('contrast', 'image')
 
-        # canny_th1 = cv2.getTrackbarPos('canny_th1', 'image')
-        # canny_th2 = cv2.getTrackbarPos('canny_th2', 'image')
+        sigma0 = cv2.getTrackbarPos('sigma0', 'image') / 10.0
+        sigma1 = cv2.getTrackbarPos('sigma1', 'image') / 10.0
+        sigma2 = cv2.getTrackbarPos('sigma2', 'image') / 10.0
+
+        gray = apply_brightness_contrast(gray, brightness, contrast)
+        # blur = cv2.GaussianBlur(adjusted, (blur_main_c, blur_main_c), 0)
+        # blur1 = cv2.GaussianBlur(blur, (blur1_c, blur1_c), 0)
+        # blur2 = cv2.GaussianBlur(blur, (blur2_c, blur2_c), 0)
+
+        width=0 
+        height=0
+
+        start_x=0 
+        start_y=0
+        end_x=0 
+        end_y=0
+
+        img_cpy = resized.copy()
+        gw, gs, gw1, gs1, gw2, gs2 = (blur_main_c, sigma0, blur1_c, sigma1, blur2_c, sigma2)
+
+   
+
+        img_blur = cv2.GaussianBlur(gray, (gw, gw), gs)
+        g1 = cv2.GaussianBlur(img_blur, (gw1, gw1), gs1)
+        g2 = cv2.GaussianBlur(img_blur, (gw2, gw2), gs2)
+        ret, thg = cv2.threshold(g2-g1, 127, 255, cv2.THRESH_BINARY)
+
+        contours, hier = cv2.findContours(thg, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_NONE)
+
+        for i in range(len(contours)):
+            if hier[0][i][2] == -1:
+                continue
+            
+            x ,y, w, h = cv2.boundingRect(contours[i])
+            a=w*h    
+            aspectRatio = float(w)/h
+            if  aspectRatio >= 2.5:          
+                approx = cv2.approxPolyDP(contours[i], 0.05* cv2.arcLength(contours[i], True), True)
+                if len(approx) == 4 and x>15  :
+                    width=w
+                    height=h   
+                    start_x=x
+                    start_y=y
+                    end_x=start_x+width
+                    end_y=start_y+height      
+                    cv2.rectangle(img_cpy, (start_x,start_y), (end_x,end_y), (0,0,255),3)
+                    cv2.putText(img_cpy, "rectangle "+str(x)+" , " + str(y-5), (x, y-5), cv2.FONT_HERSHEY_COMPLEX, 0.5, (0, 0, 0))
+                
+        cv2.imshow('image', img_cpy)
 
 
-
-        adjusted = apply_brightness_contrast(gray, brightness, contrast)
-        blur = cv2.GaussianBlur(adjusted, (blur_main_c, blur_main_c), 0)
-        # blur = cv2.bilateralFilter(adjusted, 9, blur_main_c, blur_main_c)
-        # _, blur = cv2.threshold(blur, otsu1, otsu2, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-        cv2.imshow('after', blur)
-        blur1 = cv2.GaussianBlur(blur, (blur1_c, blur1_c), 0)
-        blur2 = cv2.GaussianBlur(blur, (blur2_c, blur2_c), 0)
-
-        gray = blur1-blur2
-        # blur = cv2.GaussianBlur(gray, (blur_main_c, blur_main_c), 0)
-
-        # cv2.imshow('blur1-blur2', gray)
-
-        # gray = cv2.bilateralFilter(gray, 9, blur1_c, blur2_c)
-        # blur2 = cv2.bilateralFilter(gray, 9, blur2_c, blur1_c)
-
-        # gray = blur1 - blur2
-        # th = cv2.adaptiveThreshold(gray, 255,cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY,9,3)
-        # th = apply_brightness_contrast(th, contrast=10)
-        # cv2.imshow('th', th)
-        # gray = cv2.bitwise_not(gray)
-        # edges = cv2.bilateralFilter(gray, 15, 80, 80, cv2.BORDER_DEFAULT) 
-        # gray = cv2.medianBlur(gray, 5)
-        edges = cv2.Canny(gray, 80, 40, apertureSize=3)
-    
-
-        # get contours
-        contours, hierarchy = cv2.findContours(edges, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE)
-        image2 = resized.copy()
-        cv2.drawContours(image2, contours, -1, (0,255,0), 3)
-        cv2.imshow("Top 30 contours",image2)
-
-        cv2.imshow("image with detected license plate", gray)
-
-
-        cv2.imshow('edges', edges)
-
- 
         key = cv2.waitKey(10)
         if key == ord('q'):
             cv2.destroyAllWindows()
             quit()
         if key == ord(' '):
             return 'PO12345'
+
