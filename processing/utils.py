@@ -100,10 +100,10 @@ def perform_processing(image: np.ndarray) -> str:
     cv2.createTrackbar('blur1', 'image', 3, 50, nothing)
     cv2.createTrackbar('blur2', 'image', 10, 50, nothing)
 
-    cv2.createTrackbar('brightness', 'image', 28, 255, nothing)
-    cv2.createTrackbar('contrast', 'image', 113, 130, nothing)
+    cv2.createTrackbar('brightness', 'image', 6, 255, nothing)
+    cv2.createTrackbar('contrast', 'image', 55, 130, nothing)
 
-    cv2.createTrackbar('sigma0', 'image', 5, 100, nothing)
+    cv2.createTrackbar('sigma0', 'image', 2, 100, nothing)
     cv2.createTrackbar('sigma1', 'image', 11, 100, nothing)
     cv2.createTrackbar('sigma2', 'image', 14, 100, nothing)
     
