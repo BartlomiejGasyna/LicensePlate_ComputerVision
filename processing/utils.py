@@ -100,12 +100,12 @@ def perform_processing(image: np.ndarray) -> str:
     cv2.createTrackbar('blur1', 'image', 3, 50, nothing)
     cv2.createTrackbar('blur2', 'image', 10, 50, nothing)
 
-    cv2.createTrackbar('brightness', 'image', 6, 255, nothing)
-    cv2.createTrackbar('contrast', 'image', 55, 130, nothing)
+    cv2.createTrackbar('brightness', 'image', 5, 255, nothing)
+    cv2.createTrackbar('contrast', 'image', 20, 130, nothing)
 
-    cv2.createTrackbar('sigma0', 'image', 2, 100, nothing)
-    cv2.createTrackbar('sigma1', 'image', 11, 100, nothing)
-    cv2.createTrackbar('sigma2', 'image', 14, 100, nothing)
+    cv2.createTrackbar('sigma0', 'image', 35, 100, nothing)
+    cv2.createTrackbar('sigma1', 'image', 1, 100, nothing)
+    cv2.createTrackbar('sigma2', 'image', 11 , 100, nothing)
     
     # resized = cv2.resize(image, (640, 400), cv2.INTER_AREA)
 
@@ -133,6 +133,8 @@ def perform_processing(image: np.ndarray) -> str:
         sigma1 = cv2.getTrackbarPos('sigma1', 'image') / 10.0
         sigma2 = cv2.getTrackbarPos('sigma2', 'image') / 10.0
 
+
+        # TODO: TRY TO ADJUST LATER, AFTER BLUR
         gray = apply_brightness_contrast(gray, brightness, contrast)
         # blur = cv2.GaussianBlur(adjusted, (blur_main_c, blur_main_c), 0)
         # blur1 = cv2.GaussianBlur(blur, (blur1_c, blur1_c), 0)
@@ -150,14 +152,18 @@ def perform_processing(image: np.ndarray) -> str:
         gw, gs, gw1, gs1, gw2, gs2 = (blur_main_c, sigma0, blur1_c, sigma1, blur2_c, sigma2)
 
    
-
+        # gray = cv2.bilateralFilter(gray, 10, 20, 20, cv2.BORDER_DEFAULT)
         img_blur = cv2.GaussianBlur(gray, (gw, gw), gs)
         g1 = cv2.GaussianBlur(img_blur, (gw1, gw1), gs1)
         g2 = cv2.GaussianBlur(img_blur, (gw2, gw2), gs2)
-        ret, thg = cv2.threshold(g2-g1, 127, 255, cv2.THRESH_BINARY)
+        ret, thg = cv2.threshold(g2-g1, 160, 255, cv2.THRESH_BINARY)
 
 
         cv2.imshow('canny', thg)
+        # print('blur main c: ', blur_main_c)
+        # open = cv2.erode(thg, (blur_main_c, blur_main_c))
+        # cv2.imshow('open + close ', open)
+
         contours, hier = cv2.findContours(thg, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_NONE)
 
         for i in range(len(contours)):
@@ -167,8 +173,8 @@ def perform_processing(image: np.ndarray) -> str:
             x ,y, w, h = cv2.boundingRect(contours[i])
             a=w*h    
             aspectRatio = float(w)/h
-            # if  aspectRatio >= 2 and a > 20000:          
-            if  aspectRatio >= 2:          
+            if  aspectRatio >= 2 and a > 25000:          
+            # if  aspectRatio >= 2:          
                 approx = cv2.approxPolyDP(contours[i], 0.05* cv2.arcLength(contours[i], True), True)
                 if len(approx) == 4 and x>12  :
                     width=w
@@ -182,7 +188,7 @@ def perform_processing(image: np.ndarray) -> str:
                         color = (220, 220, 220)     
                     cv2.rectangle(img_cpy, (start_x,start_y), (end_x,end_y), color, 3)
                     cv2.putText(img_cpy, "rectangle "+str(x)+" , " + str(y-5), (x, y-5), cv2.FONT_HERSHEY_COMPLEX, 0.5, (0, 0, 0))
-                
+                    break
         cv2.imshow('image', img_cpy)
 
 
