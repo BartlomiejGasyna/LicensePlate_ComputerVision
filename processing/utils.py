@@ -29,67 +29,119 @@ def apply_brightness_contrast(input_img, brightness = 0, contrast = 0):
 
     return buf
 
-# def areaFilter(minArea, inputImage):
-#     # Perform an area filter on the binary blobs:
-#     componentsNumber, labeledImage, componentStats, componentCentroids = \
-#         cv2.connectedComponentsWithStats(inputImage, connectivity=4)
 
-#     # Get the indices/labels of the remaining components based on the area stat
-#     # (skip the background component at index 0)
-#     remainingComponentLabels = [i for i in range(1, componentsNumber) if componentStats[i][4] >= minArea]
+def find_strongest_line(image):
+    h, w = image.shape[:2]
+    # Convert image to grayscale
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
-#     # Filter the labeled pixels based on the remaining labels,
-#     # assign pixel intensity to 255 (uint8) for the remaining pixels
-#     filteredImage = np.where(np.isin(labeledImage, remainingComponentLabels) == True, 255, 0).astype('uint8')
+    # Apply Canny edge detection
+    edges = cv2.Canny(gray, 70, 120, apertureSize=3)
 
-#     return filteredImage
+    # Perform Hough Line Transform
+    lines = cv2.HoughLines(edges, 1, np.pi/180, 200)
 
-# def CMYK():
-    ##### CMYK
-    imgFloat = apply_brightness_contrast(resized,contrast=100)
-    cv2.imshow('contrast', imgFloat)
-    imgFloat = resized.astype(np.float) / 255.
-    # Calculate channel K:
-    kChannel = 1 - np.max(imgFloat, axis=2)
-    # Convert back to uint 8:
-    kChannel = (255 * kChannel).astype(np.uint8)
+    if lines is not None:
+        # Find the strongest line
+        lines = sorted(lines, key=lambda line: line[0][1])
+        strongest_line = lines[0]
 
-    # Threshold image:
-    binaryThresh = 190
-    _, binaryImage = cv2.threshold(kChannel, binaryThresh, 255, cv2.THRESH_BINARY)
+        # Get the parameters of the strongest line
+        rho = strongest_line[0][0]
+        theta = strongest_line[0][1]
 
-    minArea = 100
-    binaryImage = areaFilter(minArea, binaryImage)
-    # Use a little bit of morphology to clean the mask:
-    # Set kernel (structuring element) size:
-    kernelSize = 3
-    # Set morph operation iterations:
-    opIterations = 2
-    # Get the structuring element:
-    morphKernel = cv2.getStructuringElement(cv2.MORPH_RECT, (kernelSize, kernelSize))
-    # Perform closing:
-    binaryImage = cv2.morphologyEx(binaryImage, cv2.MORPH_CLOSE, morphKernel, None, None, opIterations, cv2.BORDER_REFLECT101)
-
-    cv2.imshow("binaryImage [closed]", binaryImage)
+        # Calculate the line's coordinates
+        a = np.cos(theta)
+        b = np.sin(theta)
+        x0 = a * rho
+        y0 = b * rho
+        x1 = int(x0 + 1000 * (-b))
+        y1 = int(y0 + 1000 * (a))
+        x2 = int(x0 - 1000 * (-b))  
+        y2 = int(y0 - 1000 * (a))
 
 
-    cv2.waitKey()
-    ##### CMYK
+        # corner points for perspective transform:
+        # top/bottom left/right
+        xtl = 0
+        xbl = 0
+        xtr = w
+        print('rho: ', rho)
+        print('theta: ', theta)
+        print('w: ', w, 'h: ', h)
+        # ytl = int(rho / a)
+        # ybl = int( (y0 - w * b) / a)
 
-# trackbars = {'blur_main': 0, 'blur1': 0, 'blur2': 0, 'brightness': 0, 'contrast': 0}
+        ytr = int( (y0 - (w * b)) / a)
+        print('height: ', h, ', y: ', ytr)
+        cv2.circle(image, (0, int(rho)), 3, (0, 255, 0), 5)
+        cv2.circle(image, (int(w), 180), 3, (0, 255, 0), 5)
 
-# trackbars['blur_main'] = blur_main_c
-# trackbars['blur1'] = blur1_c
-# trackbars['blur2'] = blur2_c
-# trackbars['brightness'] = brightness
-# trackbars['contrast'] = contrast
+        cv2.imshow('image', image)
+        # Draw the strongest line on the image
+        cv2.line(image, (x1, y1), (x2, y2), (0, 0, 255), 2)
 
-# cv2.setTrackbarPos('blur_main', 'image', trackbars['blur_main'])
-# cv2.setTrackbarPos('blur1', 'image', trackbars['blur1'])
-# cv2.setTrackbarPos('blur2', 'image', trackbars['blur2'])
+        # Compute the transformation matrix
+        angle_deg = np.degrees(theta) - 90
+        center = (image.shape[1] // 2, image.shape[0] // 2)
+        rotation_matrix = cv2.getRotationMatrix2D(center, angle_deg, 1.0)
 
-# cv2.setTrackbarPos('brightness', 'image', trackbars['brightness'])
-# cv2.setTrackbarPos('contrast', 'image', trackbars['contrast'])
+        # rest :
+        for line in lines:
+            # Get the parameters of the strongest line
+            rho = line[0][0]
+            theta = line[0][1]
+
+            # Calculate the line's coordinates
+            a = np.cos(theta)
+            b = np.sin(theta)
+            x0 = a * rho
+            y0 = b * rho
+            x1 = int(x0 + 1000 * (-b))
+            y1 = int(y0 + 1000 * (a))
+            x2 = int(x0 - 1000 * (-b))
+            y2 = int(y0 - 1000 * (a))
+
+            # Draw the strongest line on the image
+            cv2.line(image, (x1, y1), (x2, y2), (0, 0, 255), 2)
+
+        # Perform the image transformation
+        transformed_image = cv2.warpAffine(image, rotation_matrix, (image.shape[1], image.shape[0]))
+
+
+        cv2.imshow('transformed_image', transformed_image)
+
+    cv2.imshow('strongest line', image)
+
+def extract_letters(plate):
+    h, w = plate.shape[:2]
+
+    ret, plate = cv2.threshold(plate,50,255,cv2.THRESH_BINARY)
+    # kernel = np.ones((3,3),np.uint8)
+    # plate = cv2.dilate(plate,kernel,iterations = 1)
+    # Determine contour of all blobs found
+    contours, hierarchy = cv2.findContours( plate.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
+    # contours = [cv2.approxPolyDP(cnt, 3, True) for cnt in contours]
+
+    # Draw all contours
+    vis = np.zeros((h, w, 3), np.uint8)
+    cv2.drawContours( vis, contours, -1, (128,255,255), 3, cv2.LINE_AA)
+    cv2.imshow('vis1', vis)
+    # Draw the contour with maximum perimeter (omitting the first contour which is outer boundary of image
+    # Not necessary in this case
+    vis2 = np.zeros((h, w, 3), np.uint8)
+    perimeter=[]
+    for cnt in contours[1:]:
+        perimeter.append(cv2.arcLength(cnt,True))
+    # print perimeter
+    # print max(perimeter)
+    maxindex = perimeter.index(max(perimeter))
+    # print maxindex
+
+    cv2.drawContours( vis2, contours, maxindex +1, (255,0,0), -1)
+    cv2.imshow('extract', vis2)
+
+
 def perform_processing(image: np.ndarray) -> str:
     print(f'image.shape: {image.shape}')
     
@@ -135,7 +187,9 @@ def perform_processing(image: np.ndarray) -> str:
 
 
         # TODO: TRY TO ADJUST LATER, AFTER BLUR
+
         gray = apply_brightness_contrast(gray, brightness, contrast)
+
         # blur = cv2.GaussianBlur(adjusted, (blur_main_c, blur_main_c), 0)
         # blur1 = cv2.GaussianBlur(blur, (blur1_c, blur1_c), 0)
         # blur2 = cv2.GaussianBlur(blur, (blur2_c, blur2_c), 0)
@@ -151,12 +205,12 @@ def perform_processing(image: np.ndarray) -> str:
         img_cpy = resized.copy()
         gw, gs, gw1, gs1, gw2, gs2 = (blur_main_c, sigma0, blur1_c, sigma1, blur2_c, sigma2)
 
-   
+    
         # gray = cv2.bilateralFilter(gray, 10, 20, 20, cv2.BORDER_DEFAULT)
         img_blur = cv2.GaussianBlur(gray, (gw, gw), gs)
         g1 = cv2.GaussianBlur(img_blur, (gw1, gw1), gs1)
         g2 = cv2.GaussianBlur(img_blur, (gw2, gw2), gs2)
-        ret, thg = cv2.threshold(g2-g1, 160, 255, cv2.THRESH_BINARY)
+        ret, thg = cv2.threshold(g2-g1, 160, 255, cv2.THRESH_OTSU)
 
 
         cv2.imshow('canny', thg)
@@ -186,8 +240,17 @@ def perform_processing(image: np.ndarray) -> str:
                     color = (0, 0, 255)
                     if a < 20_000:
                         color = (220, 220, 220)     
+
+                    plate1 = img_cpy[ start_y-20:end_y+20, start_x-20:end_x+20].copy()
+                    plate2 = thg[ start_y:end_y, start_x:end_x].copy()
+                    cv2.imshow('plate', plate2)
+                    # extract_letters(cv2.cvtColor(plate1, cv2.COLOR_BGR2GRAY))
+                    find_strongest_line(plate1)
+                    
+
                     cv2.rectangle(img_cpy, (start_x,start_y), (end_x,end_y), color, 3)
                     cv2.putText(img_cpy, "rectangle "+str(x)+" , " + str(y-5), (x, y-5), cv2.FONT_HERSHEY_COMPLEX, 0.5, (0, 0, 0))
+                    
                     break
         cv2.imshow('image', img_cpy)
 
