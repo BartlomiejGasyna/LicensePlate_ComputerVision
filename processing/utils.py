@@ -1,5 +1,6 @@
 import numpy as np
 import cv2
+import math 
 
 def nothing(x):
     pass
@@ -30,117 +31,148 @@ def apply_brightness_contrast(input_img, brightness = 0, contrast = 0):
     return buf
 
 
-def find_strongest_line(image):
-    h, w = image.shape[:2]
-    # Convert image to grayscale
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+def transform_corners(image: np.ndarray) -> np.ndarray:
+    # image = cv2.resize(image, (520, 114), cv2.INTER_AREA)
+    transformed = image.copy()
+    gray = cv2.cvtColor(image,cv2.COLOR_BGR2GRAY)
 
-    # Apply Canny edge detection
-    edges = cv2.Canny(gray, 70, 120, apertureSize=3)
+    rt, gray = cv2.threshold(gray, 160, 255, cv2.THRESH_OTSU)
+    
+    contours, hierarchy = cv2.findContours(gray, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
 
-    # Perform Hough Line Transform
-    lines = cv2.HoughLines(edges, 1, np.pi/180, 200)
+    # Find the innermost contour
+    inner_contour = None
+    max_area = 0
 
-    if lines is not None:
-        # Find the strongest line
-        lines = sorted(lines, key=lambda line: line[0][1])
-        strongest_line = lines[0]
+    for contour in contours:
+        area = cv2.contourArea(contour)
+        if area > max_area:
+            max_area = area
+            inner_contour = contour
 
-        # Get the parameters of the strongest line
-        rho = strongest_line[0][0]
-        theta = strongest_line[0][1]
+    # Draw the innermost contour on the image
+    contours_img = cv2.drawContours(image, [inner_contour], 0, (0, 0, 255), 2)
 
-        # Calculate the line's coordinates
-        a = np.cos(theta)
-        b = np.sin(theta)
-        x0 = a * rho
-        y0 = b * rho
-        x1 = int(x0 + 1000 * (-b))
-        y1 = int(y0 + 1000 * (a))
-        x2 = int(x0 - 1000 * (-b))  
-        y2 = int(y0 - 1000 * (a))
+    # contours_img = cv2.drawContours(image, contours[:15], -1, (0, 220, 0), 1)
+    # cv2.imshow('cntrs', contours_img)
 
+    dst = np.zeros((image.shape[0], image.shape[1], 3), dtype=np.uint8)
+    dst = cv2.drawContours(dst, [inner_contour], 0, (0, 0, 255), 2)
+    gray = cv2.cvtColor(dst, cv2.COLOR_BGR2GRAY)
+    gray = np.float32(gray)
+    dst = cv2.cornerHarris(gray, 2, 3, 0.04)
+    dst = cv2.dilate(dst, None)
+    
 
-        # corner points for perspective transform:
-        # top/bottom left/right
-        xtl = 0
-        xbl = 0
-        xtr = w
-        print('rho: ', rho)
-        print('theta: ', theta)
-        print('w: ', w, 'h: ', h)
-        # ytl = int(rho / a)
-        # ybl = int( (y0 - w * b) / a)
+    image[dst>0.01*dst.max()]=[0,255,0]
+    # cv2.imshow('harris', image)
 
-        ytr = int( (y0 - (w * b)) / a)
-        print('height: ', h, ', y: ', ytr)
-        cv2.circle(image, (0, int(rho)), 3, (0, 255, 0), 5)
-        cv2.circle(image, (int(w), 180), 3, (0, 255, 0), 5)
+    x0, x_end = 0, image.shape[0]
+    y0, y_end = 0, image.shape[1]
 
-        cv2.imshow('image', image)
-        # Draw the strongest line on the image
-        cv2.line(image, (x1, y1), (x2, y2), (0, 0, 255), 2)
+    
+    points = np.transpose(np.nonzero(dst>0.01*dst.max()))
 
-        # Compute the transformation matrix
-        angle_deg = np.degrees(theta) - 90
-        center = (image.shape[1] // 2, image.shape[0] // 2)
-        rotation_matrix = cv2.getRotationMatrix2D(center, angle_deg, 1.0)
+    corners = np.float32([[x0, y0], [x_end, y0], [x0, y_end], [x_end, y_end]])
 
-        # rest :
-        for line in lines:
-            # Get the parameters of the strongest line
-            rho = line[0][0]
-            theta = line[0][1]
+    x = 0
+    y = 0
+    Error = lambda p: math.sqrt((p[0]-x) ** 2 + (p[1]-y) ** 2)
 
-            # Calculate the line's coordinates
-            a = np.cos(theta)
-            b = np.sin(theta)
-            x0 = a * rho
-            y0 = b * rho
-            x1 = int(x0 + 1000 * (-b))
-            y1 = int(y0 + 1000 * (a))
-            x2 = int(x0 - 1000 * (-b))
-            y2 = int(y0 - 1000 * (a))
+    best_matches = []
+    for corner in corners:
+        x = corner[0]
+        y = corner[1]
+        
+        values = list(map(Error, points))
+        index = values.index(min(values))
+        best_matches.append(points[index])
+    
 
-            # Draw the strongest line on the image
-            cv2.line(image, (x1, y1), (x2, y2), (0, 0, 255), 2)
+    for corner in best_matches:
+        cv2.circle(image, (corner[1], corner[0]), 3, (255, 0, 0), 5)
+    # cv2.imshow('harris', image)
 
-        # Perform the image transformation
-        transformed_image = cv2.warpAffine(image, rotation_matrix, (image.shape[1], image.shape[0]))
+    
+    best_matches = np.float32(best_matches)
+    corners = corners[:, [1, 0]]
+    best_matches = best_matches[:, [1, 0]]
+    matrix = cv2.getPerspectiveTransform(best_matches, corners)
+    transformed = cv2.warpPerspective(transformed, matrix, (y_end, x_end))
 
+    cv2.imshow('transformed', transformed)
 
-        cv2.imshow('transformed_image', transformed_image)
+    return transformed
 
-    cv2.imshow('strongest line', image)
+def extract_letters(plate: np.ndarray):
+    gray = cv2.cvtColor(plate,cv2.COLOR_BGR2GRAY)
 
-def extract_letters(plate):
-    h, w = plate.shape[:2]
+    padding = 5
+    new_height = gray.shape[0] + 2 * padding
+    new_width = gray.shape[1] + 2 * padding
+    padded_image = np.zeros((new_height, new_width), dtype=np.uint8)
+    padded_image.fill(255)  # Fill with white color (255)
 
-    ret, plate = cv2.threshold(plate,50,255,cv2.THRESH_BINARY)
-    # kernel = np.ones((3,3),np.uint8)
-    # plate = cv2.dilate(plate,kernel,iterations = 1)
-    # Determine contour of all blobs found
-    contours, hierarchy = cv2.findContours( plate.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
-    # contours = [cv2.approxPolyDP(cnt, 3, True) for cnt in contours]
+    gray = cv2.GaussianBlur(gray, (7, 7), 3.5)
+    rt, gray = cv2.threshold(gray, 200, 255, cv2.THRESH_OTSU)
 
-    # Draw all contours
-    vis = np.zeros((h, w, 3), np.uint8)
-    cv2.drawContours( vis, contours, -1, (128,255,255), 3, cv2.LINE_AA)
-    cv2.imshow('vis1', vis)
-    # Draw the contour with maximum perimeter (omitting the first contour which is outer boundary of image
-    # Not necessary in this case
-    vis2 = np.zeros((h, w, 3), np.uint8)
-    perimeter=[]
-    for cnt in contours[1:]:
-        perimeter.append(cv2.arcLength(cnt,True))
-    # print perimeter
-    # print max(perimeter)
-    maxindex = perimeter.index(max(perimeter))
-    # print maxindex
+    # Calculate the starting position to paste the original image
+    start_x = padding
+    start_y = padding
 
-    cv2.drawContours( vis2, contours, maxindex +1, (255,0,0), -1)
-    cv2.imshow('extract', vis2)
+    # Copy the original image onto the padded image at the specified position
+    padded_image[start_y:start_y + gray.shape[0], start_x:start_x + gray.shape[1]] = gray
 
+    cv2.imshow('gray', padded_image)
+
+    contours, hierarchy = cv2.findContours(padded_image, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
+    
+    dst = np.zeros((padded_image.shape[0], padded_image.shape[1], 3), dtype=np.uint8)
+
+    # print('cntr')
+    # for controur in contours:
+    #     print(cv2.contourArea(controur))
+    #     if cv2.contourArea(controur) < 50_000:
+    largest_contour_index = max(range(len(contours)), key=lambda i: cv2.contourArea(contours[i]))
+    
+    contours = list(contours)
+    del contours[largest_contour_index]
+    
+    print('height:' ,dst.shape[0])
+    print('next')
+    # dst = cv2.drawContours(dst, contours, -1, (255, 0, 0), 2)
+
+    for idx, contour in enumerate(contours):
+        M = cv2.moments(contour)
+        cX = int(M["m10"] / M["m00"])
+        cY = int(M["m01"] / M["m00"])
+        # print('cX: ', cX, ', cY: ', cY)
+        # put text and highlight the center
+        distX = 30
+        distY = 30
+        area = cv2.contourArea(contour)
+
+        print('area: ', area)
+        if area < 500:
+            
+            del contours[idx]
+        
+        elif cX < distX or cX > dst.shape[1] - distX or cY < distY or cY > dst.shape[0] - distY:
+        # if cY < distY or cY > dst.shape[0] - distY:
+            
+            del contours[idx]
+        cv2.circle(dst, (cX, cY), 5, (255, 255, 255), -1)
+        # else:
+        #     cv2.putText(dst, 'cX:'+str(cX)+' , cY: '+str(cY) + ', area: '+str(area) 
+        #         , (cX, cY), cv2.FONT_HERSHEY_COMPLEX, 0.5, (255, 255, 255))
+            
+
+    
+    dst = cv2.drawContours(dst, contours, -1, (0, 0, 255), 2)
+    cv2.imshow('letters', dst)
+
+   
+    
 
 def perform_processing(image: np.ndarray) -> str:
     print(f'image.shape: {image.shape}')
@@ -160,6 +192,8 @@ def perform_processing(image: np.ndarray) -> str:
     cv2.createTrackbar('sigma2', 'image', 11 , 100, nothing)
     
     # resized = cv2.resize(image, (640, 400), cv2.INTER_AREA)
+
+
 
     if image.shape[0] > image.shape[1]:
         dstx, dsty = 720, 960
@@ -213,12 +247,17 @@ def perform_processing(image: np.ndarray) -> str:
         ret, thg = cv2.threshold(g2-g1, 160, 255, cv2.THRESH_OTSU)
 
 
-        cv2.imshow('canny', thg)
+        # cv2.imshow('canny', thg)
         # print('blur main c: ', blur_main_c)
         # open = cv2.erode(thg, (blur_main_c, blur_main_c))
         # cv2.imshow('open + close ', open)
 
         contours, hier = cv2.findContours(thg, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_NONE)
+
+        contours_img = np.zeros((dsty, dstx, 3), dtype=np.uint8)
+
+        contours_img = cv2.drawContours(contours_img, contours, -1, (220, 220, 220), 1)
+        # cv2.imshow('countours', contours_img)
 
         for i in range(len(contours)):
             if hier[0][i][2] == -1:
@@ -241,12 +280,17 @@ def perform_processing(image: np.ndarray) -> str:
                     if a < 20_000:
                         color = (220, 220, 220)     
 
-                    plate1 = img_cpy[ start_y-20:end_y+20, start_x-20:end_x+20].copy()
+                    ex = 5
+                    plate1 = img_cpy[ start_y-ex:end_y+ex, start_x-ex:end_x+ex].copy()
+                    plate1 = img_cpy[ start_y:end_y, start_x:end_x].copy()
                     plate2 = thg[ start_y:end_y, start_x:end_x].copy()
-                    cv2.imshow('plate', plate2)
+                    # cv2.imshow('plate', plate2)
                     # extract_letters(cv2.cvtColor(plate1, cv2.COLOR_BGR2GRAY))
-                    find_strongest_line(plate1)
-                    
+                    # find_strongest_line(plate1)
+
+                    # contours_img = contours_img[ start_y-20:end_y+20, start_x-20:end_x+20].copy()
+                    transformed = transform_corners(plate1)
+                    extract_letters(transformed)
 
                     cv2.rectangle(img_cpy, (start_x,start_y), (end_x,end_y), color, 3)
                     cv2.putText(img_cpy, "rectangle "+str(x)+" , " + str(y-5), (x, y-5), cv2.FONT_HERSHEY_COMPLEX, 0.5, (0, 0, 0))
