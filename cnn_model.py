@@ -4,8 +4,9 @@ from keras.preprocessing.image import ImageDataGenerator
 from keras.models import Sequential, load_model
 from keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropout
 
-dataset_path = 'ocr_dataset'
 
+dataset_path = 'ocr_dataset'
+# dataset_path = '/home/gasyna/RiSA_S1/SW/ImageProcessingCourse/project/2023/ocr_dataset'
 # Define image dimensions and batch size
 image_height = 64
 image_width = 48
@@ -42,15 +43,16 @@ model.add(MaxPooling2D((2, 2)))
 model.add(Conv2D(128, (3, 3), activation='relu'))
 model.add(MaxPooling2D((2, 2)))
 model.add(Flatten())
-model.add(Dropout(0.4))
+model.add(Dropout(0.5))
 model.add(Dense(128, activation='relu'))
-model.add(Dense(36, activation='softmax'))
+model.add(Dropout(0.5))
+model.add(Dense(35, activation='softmax'))
 
 # # Compile the model
 model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
 
 
-epochs = 10
+epochs = 8
 
 # # Train the model using the training dataset
 model.fit(

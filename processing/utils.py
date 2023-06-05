@@ -1,6 +1,26 @@
 import numpy as np
 import cv2
 import math 
+import matplotlib.pyplot as plt
+import time
+
+import modelTest
+
+
+BLUR_MAIN = 7
+BLUR1 = 7
+BLUR2 = 21
+
+BRIGHTNESS = 5
+CONTRAST = 20
+
+SIGMA0 = 3.5
+SIGMA1 = 0.1
+SIGMA2 = 1.1
+
+SIZE_X = 960
+SIZE_Y = 720
+
 
 def nothing(x):
     pass
@@ -32,7 +52,6 @@ def apply_brightness_contrast(input_img, brightness = 0, contrast = 0):
 
 
 def transform_corners(image: np.ndarray) -> np.ndarray:
-    # image = cv2.resize(image, (520, 114), cv2.INTER_AREA)
     transformed = image.copy()
     gray = cv2.cvtColor(image,cv2.COLOR_BGR2GRAY)
 
@@ -51,10 +70,8 @@ def transform_corners(image: np.ndarray) -> np.ndarray:
             inner_contour = contour
 
     # Draw the innermost contour on the image
-    contours_img = cv2.drawContours(image, [inner_contour], 0, (0, 0, 255), 2)
+    # contours_img = cv2.drawContours(image, [inner_contour], 0, (0, 0, 255), 2)
 
-    # contours_img = cv2.drawContours(image, contours[:15], -1, (0, 220, 0), 1)
-    # cv2.imshow('cntrs', contours_img)
 
     dst = np.zeros((image.shape[0], image.shape[1], 3), dtype=np.uint8)
     dst = cv2.drawContours(dst, [inner_contour], 0, (0, 0, 255), 2)
@@ -65,8 +82,6 @@ def transform_corners(image: np.ndarray) -> np.ndarray:
     
 
     image[dst>0.01*dst.max()]=[0,255,0]
-    # cv2.imshow('harris', image)
-
     x0, x_end = 0, image.shape[0]
     y0, y_end = 0, image.shape[1]
 
@@ -91,7 +106,6 @@ def transform_corners(image: np.ndarray) -> np.ndarray:
 
     for corner in best_matches:
         cv2.circle(image, (corner[1], corner[0]), 3, (255, 0, 0), 5)
-    # cv2.imshow('harris', image)
 
     
     best_matches = np.float32(best_matches)
@@ -105,8 +119,9 @@ def transform_corners(image: np.ndarray) -> np.ndarray:
     return transformed
 
 def extract_letters(plate: np.ndarray):
-    gray = cv2.cvtColor(plate,cv2.COLOR_BGR2GRAY)
+    plate = cv2.resize(plate, (1040, 228), cv2.INTER_AREA)
 
+    gray = cv2.cvtColor(plate,cv2.COLOR_BGR2GRAY)
     padding = 5
     new_height = gray.shape[0] + 2 * padding
     new_width = gray.shape[1] + 2 * padding
@@ -122,56 +137,128 @@ def extract_letters(plate: np.ndarray):
 
     # Copy the original image onto the padded image at the specified position
     padded_image[start_y:start_y + gray.shape[0], start_x:start_x + gray.shape[1]] = gray
+    copy = padded_image.copy()
 
-    cv2.imshow('gray', padded_image)
-
-    contours, hierarchy = cv2.findContours(padded_image, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
+    contours, hierarchy = cv2.findContours(padded_image, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_NONE)
     
     dst = np.zeros((padded_image.shape[0], padded_image.shape[1], 3), dtype=np.uint8)
 
-    # print('cntr')
-    # for controur in contours:
-    #     print(cv2.contourArea(controur))
-    #     if cv2.contourArea(controur) < 50_000:
+
     largest_contour_index = max(range(len(contours)), key=lambda i: cv2.contourArea(contours[i]))
     
     contours = list(contours)
     del contours[largest_contour_index]
     
-    print('height:' ,dst.shape[0])
-    print('next')
-    # dst = cv2.drawContours(dst, contours, -1, (255, 0, 0), 2)
 
+    letters =[]
     for idx, contour in enumerate(contours):
         M = cv2.moments(contour)
-        cX = int(M["m10"] / M["m00"])
-        cY = int(M["m01"] / M["m00"])
-        # print('cX: ', cX, ', cY: ', cY)
-        # put text and highlight the center
-        distX = 30
-        distY = 30
+        try:
+            cX = int(M["m10"] / M["m00"])
+            cY = int(M["m01"] / M["m00"])
+        except:
+            cX = 0
+            cY = 0
+
+        distX = 50
+        distY = 50
         area = cv2.contourArea(contour)
 
-        print('area: ', area)
-        if area < 500:
-            
-            del contours[idx]
+        if area < 1000 or area > 25000:
+            # print('deleted')
+            continue
         
-        elif cX < distX or cX > dst.shape[1] - distX or cY < distY or cY > dst.shape[0] - distY:
-        # if cY < distY or cY > dst.shape[0] - distY:
-            
-            del contours[idx]
-        cv2.circle(dst, (cX, cY), 5, (255, 255, 255), -1)
-        # else:
-        #     cv2.putText(dst, 'cX:'+str(cX)+' , cY: '+str(cY) + ', area: '+str(area) 
-        #         , (cX, cY), cv2.FONT_HERSHEY_COMPLEX, 0.5, (255, 255, 255))
-            
+        if cX < distX or cX > dst.shape[1] - distX or cY < distY or cY > dst.shape[0] - distY:
+            continue
 
-    
-    dst = cv2.drawContours(dst, contours, -1, (0, 0, 255), 2)
+        letters.append(idx)
+    contours_filtered = [val for idx, val in enumerate(contours) if idx in letters ]
+
+
+    cv2.fillPoly(dst, pts = contours_filtered, color=(255,255,255))
+
+    for cnt in contours_filtered:
+        if cv2.contourArea(cnt) < 3500:
+            cv2.fillPoly(dst, pts = [cnt], color=(0,0,0))
+            # print('filled artefacts')
+
+
+
+
+
+    dst = cv2.cvtColor(dst, cv2.COLOR_BGR2GRAY)
+
     cv2.imshow('letters', dst)
+    contours, hierarchy = cv2.findContours(dst, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
+    
+    contours_filtered = []
+    for i, contour in enumerate(contours):
+        # Retrieve the hierarchy information for the current contour
+        hierarchy_info = hierarchy[0][i]
 
-   
+        # Check if the contour is an external contour (no parent and no child)
+        if hierarchy_info[3] == -1:
+            contours_filtered.append(contour)
+
+    contours = contours_filtered
+    contours_img = cv2.drawContours(dst, contours, -1, (255,255,255), 2)
+
+    dst = cv2.bitwise_not(dst)
+
+    boundRect =[]
+    for i, c in enumerate(contours):
+        contours_poly = cv2.approxPolyDP(c, 3, True)
+        rect = cv2.boundingRect(contours_poly)
+        boundRect.append(rect)
+
+    dst = cv2.cvtColor(dst, cv2.COLOR_GRAY2BGR)
+    boundRect = sorted(boundRect, key = lambda box: box[0])
+    license_plate = []
+    
+    for i in range(len(boundRect)):
+
+
+        x, y, w, h = boundRect[i]
+        letter = dst[max(y-5, 0):min(y+h+5, dst.shape[0]), max(x-5, 0):min(x+w+5, dst.shape[1])]
+        
+        # clear_letter = copy[max(y-5, 0):min(y+h+5, dst.shape[0]), max(x-5, 0):min(x+w+5, dst.shape[1])]
+
+        label = modelTest.inferImg(letter)
+        # cv2.imshow(label, letter)
+        
+        # cv2.waitKey(800)
+
+        # cv2.destroyAllWindows()
+
+
+        # Numbers cannot be used in first part of registry plate 
+        changes1 = {'0': 'O',
+                    '1': 'I',
+                    '2': 'Z',
+                    '4': 'A',
+                    '5': 'Z',
+                    '8': 'B'
+                    }
+        
+        # Polish law regulates that letters B, D, I, O, Z cannot be used in second part of registry plate
+        changes2 = {'B': '8', 
+                    'D': '0', 
+                    'I': '1',
+                    'O': '0', 
+                    'Z': '2'}
+                    
+        if i < 2 and label in changes1:
+            label = changes1[label]
+        elif i > 2 and label in changes2:
+            label = changes2[label]
+
+        license_plate.append(label)
+
+    plane_number = ''.join(license_plate)
+    # print('license plate: ', plane_number)
+
+    return plane_number
+
     
 
 def perform_processing(image: np.ndarray) -> str:
@@ -191,14 +278,13 @@ def perform_processing(image: np.ndarray) -> str:
     cv2.createTrackbar('sigma1', 'image', 1, 100, nothing)
     cv2.createTrackbar('sigma2', 'image', 11 , 100, nothing)
     
-    # resized = cv2.resize(image, (640, 400), cv2.INTER_AREA)
 
 
 
     if image.shape[0] > image.shape[1]:
-        dstx, dsty = 720, 960
+        dstx, dsty = SIZE_Y, SIZE_X
     else:
-        dstx, dsty = 960, 720
+        dstx, dsty = SIZE_X, SIZE_Y
 
     resized = cv2.resize(image, (dstx, dsty), cv2.INTER_AREA)
 
@@ -220,13 +306,9 @@ def perform_processing(image: np.ndarray) -> str:
         sigma2 = cv2.getTrackbarPos('sigma2', 'image') / 10.0
 
 
-        # TODO: TRY TO ADJUST LATER, AFTER BLUR
-
         gray = apply_brightness_contrast(gray, brightness, contrast)
 
-        # blur = cv2.GaussianBlur(adjusted, (blur_main_c, blur_main_c), 0)
-        # blur1 = cv2.GaussianBlur(blur, (blur1_c, blur1_c), 0)
-        # blur2 = cv2.GaussianBlur(blur, (blur2_c, blur2_c), 0)
+
 
         width=0 
         height=0
@@ -239,18 +321,11 @@ def perform_processing(image: np.ndarray) -> str:
         img_cpy = resized.copy()
         gw, gs, gw1, gs1, gw2, gs2 = (blur_main_c, sigma0, blur1_c, sigma1, blur2_c, sigma2)
 
-    
-        # gray = cv2.bilateralFilter(gray, 10, 20, 20, cv2.BORDER_DEFAULT)
         img_blur = cv2.GaussianBlur(gray, (gw, gw), gs)
         g1 = cv2.GaussianBlur(img_blur, (gw1, gw1), gs1)
         g2 = cv2.GaussianBlur(img_blur, (gw2, gw2), gs2)
         ret, thg = cv2.threshold(g2-g1, 160, 255, cv2.THRESH_OTSU)
 
-
-        # cv2.imshow('canny', thg)
-        # print('blur main c: ', blur_main_c)
-        # open = cv2.erode(thg, (blur_main_c, blur_main_c))
-        # cv2.imshow('open + close ', open)
 
         contours, hier = cv2.findContours(thg, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_NONE)
 
@@ -284,19 +359,15 @@ def perform_processing(image: np.ndarray) -> str:
                     plate1 = img_cpy[ start_y-ex:end_y+ex, start_x-ex:end_x+ex].copy()
                     plate1 = img_cpy[ start_y:end_y, start_x:end_x].copy()
                     plate2 = thg[ start_y:end_y, start_x:end_x].copy()
-                    # cv2.imshow('plate', plate2)
-                    # extract_letters(cv2.cvtColor(plate1, cv2.COLOR_BGR2GRAY))
-                    # find_strongest_line(plate1)
 
-                    # contours_img = contours_img[ start_y-20:end_y+20, start_x-20:end_x+20].copy()
                     transformed = transform_corners(plate1)
-                    extract_letters(transformed)
+                    plate_number = extract_letters(transformed)
 
-                    cv2.rectangle(img_cpy, (start_x,start_y), (end_x,end_y), color, 3)
-                    cv2.putText(img_cpy, "rectangle "+str(x)+" , " + str(y-5), (x, y-5), cv2.FONT_HERSHEY_COMPLEX, 0.5, (0, 0, 0))
+                    # cv2.rectangle(img_cpy, (start_x,start_y), (end_x,end_y), color, 3)
+                    # cv2.putText(img_cpy, "rectangle "+str(x)+" , " + str(y-5), (x, y-5), cv2.FONT_HERSHEY_COMPLEX, 0.5, (0, 0, 0))
                     
                     break
-        cv2.imshow('image', img_cpy)
+        # cv2.imshow('image', img_cpy)
 
 
         key = cv2.waitKey(10)
@@ -305,4 +376,7 @@ def perform_processing(image: np.ndarray) -> str:
             quit()
         if key == ord(' '):
             return 'PO12345'
+
+        # cv2.waitKey(100)
+        return plate_number
 

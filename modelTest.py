@@ -7,35 +7,35 @@ import cv2
 import numpy as np
 import os
 
-# Define image dimensions and batch size
-image_height = 64
-image_width = 48
+def inferImg(img: np.ndarray):
 
-# Create an instance of the ImageDataGenerator
-datagen = ImageDataGenerator(rescale=1./255, validation_split=0.2)
+    # Define image dimensions and batch size
+    image_height = 64
+    image_width = 48
 
-
-dataset_path = 'ocr_dataset'
-
-# Generate training dataset from the subfolders
-train_generator = datagen.flow_from_directory(
-    dataset_path,
-    target_size=(image_height, image_width),
-    class_mode='categorical',
-    subset='training'
-)
-
-class_names = train_generator.class_indices
+    # Create an instance of the ImageDataGenerator
+    datagen = ImageDataGenerator(rescale=1./255, validation_split=0.2)
 
 
-model = load_model("charModel0.h5")
+    dataset_path = 'ocr_dataset'
+
+    # Generate training dataset from the subfolders
+    train_generator = datagen.flow_from_directory(
+        dataset_path,
+        target_size=(image_height, image_width),
+        class_mode='categorical',
+        subset='training'
+    )
+
+    class_names = train_generator.class_indices
+
+
+    model = load_model("charModel1.h5")
 
 
 
-def inferImg(path):
-    img = cv2.imread(path)
 
-    padding = 5
+    padding = 10
     new_height = img.shape[0] + 2 * padding
     new_width = img.shape[1] + 2 * padding
     padded_image = np.zeros((new_height, new_width, 3), dtype=np.uint8)
@@ -56,29 +56,31 @@ def inferImg(path):
 
     print("Predicted class:", predicted_class)
 
-    cv2.imshow(predicted_class, img_cpy)
+    # cv2.imshow(predicted_class, img_cpy)
+
+                                 
+
+    return predicted_class
 
 
+# if __name__ == '__main__':
 
-    return str(predicted_class)
+#     directory = 'letter_dataset'
+#     for filename in os.listdir(directory):
+#         if filename.endswith('.jpg') or filename.endswith('.png'):
+#             # Construct the full file path
+#             file_path = os.path.join(directory, filename)
 
+#             # Read the image using OpenCV
+#             image = cv2.imread(file_path)
 
-directory = 'letter_dataset'
-for filename in os.listdir(directory):
-    if filename.endswith('.jpg') or filename.endswith('.png'):
-        # Construct the full file path
-        file_path = os.path.join(directory, filename)
+#             pred = inferImg(image)
+#             # Display the image
+#                 # Wait for a key press to move to the next image
+#             key = cv2.waitKey(0)
+#             cv2.destroyAllWindows()
 
-        # Read the image using OpenCV
-        image = cv2.imread(file_path)
-
-        pred = inferImg(file_path)
-        # Display the image
-            # Wait for a key press to move to the next image
-        key = cv2.waitKey(0)
-        cv2.destroyAllWindows()
-
-        if key == ord('q'):
-            break
-        
-        
+#             if key == ord('q'):
+#                 break
+            
+            

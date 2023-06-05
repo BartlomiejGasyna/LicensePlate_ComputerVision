@@ -1,31 +1,52 @@
-import cv2 as cv
+import os
+import cv2
 import numpy as np
-from matplotlib import pyplot as plt
-img = cv.imread('font_template.png', cv.IMREAD_GRAYSCALE)
-assert img is not None, "file could not be read, check with os.path.exists()"
-img2 = img.copy()
-template = cv.imread('letter.png', cv.IMREAD_GRAYSCALE)
-assert template is not None, "file could not be read, check with os.path.exists()"
-w, h = template.shape[::-1]
-# All the 6 methods for comparison in a list
-methods = ['cv.TM_CCOEFF', 'cv.TM_CCOEFF_NORMED', 'cv.TM_CCORR',
-            'cv.TM_CCORR_NORMED', 'cv.TM_SQDIFF', 'cv.TM_SQDIFF_NORMED']
-for meth in methods:
-    img = img2.copy()
-    method = eval(meth)
-    # Apply template Matching
-    res = cv.matchTemplate(img,template,method)
-    min_val, max_val, min_loc, max_loc = cv.minMaxLoc(res)
-    # If the method is TM_SQDIFF or TM_SQDIFF_NORMED, take minimum
-    if method in [cv.TM_SQDIFF, cv.TM_SQDIFF_NORMED]:
-        top_left = min_loc
-    else:
-        top_left = max_loc
-    bottom_right = (top_left[0] + w, top_left[1] + h)
-    cv.rectangle(img,top_left, bottom_right, 0, 2)
-    plt.subplot(121),plt.imshow(res,cmap = 'gray')
-    plt.title('Matching Result'), plt.xticks([]), plt.yticks([])
-    plt.subplot(122),plt.imshow(img,cmap = 'gray')
-    plt.title('Detected Point'), plt.xticks([]), plt.yticks([])
-    plt.suptitle(meth)
-    plt.show()
+
+# def add_noise(image_path, output_dir):
+#     image = cv2.imread(image_path)
+
+def augment_image(image_path, output_dir):
+    # Load the image
+    image = cv2.imread(image_path)
+
+    # Apply small rotation
+    angle = np.random.randint(-5, 5)
+    rotation_matrix = cv2.getRotationMatrix2D((image.shape[1] / 2, image.shape[0] / 2), angle, 1)
+    rotated_image = cv2.warpAffine(image, rotation_matrix, (image.shape[1], image.shape[0]))
+
+    blur_radius = np.random.uniform(0.01, 0.6)
+    blurred_image = cv2.GaussianBlur(rotated_image, (3, 3), blur_radius)
+
+    # Add noise
+    noise = np.random.normal(1, 0.3, blurred_image.shape).astype(np.uint8)
+    noisy_image = cv2.add(blurred_image, noise)
+
+    # Generate output filename
+    image_name = os.path.basename(image_path)
+    rand = round(abs(np.random.random()*10000))
+    output_filename = os.path.join(output_dir, str(rand) + image_name)
+
+    # Save augmented image
+    cv2.imwrite(output_filename, noisy_image)
+    print(f"Augmented image saved: {output_filename}")
+
+
+def augment_images_in_directory(input_dir, output_dir):
+    # Create the output directory if it doesn't exist
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
+    # Get a list of image files in the input directory
+    image_files = [file for file in os.listdir(input_dir) if file.lower().endswith(('.png', '.jpg', '.jpeg'))]
+
+    # Augment each image
+    for image_file in image_files:
+        image_path = os.path.join(input_dir, image_file)
+        augment_image(image_path, output_dir)
+
+
+# Example usage
+input_directory = 'M'
+output_directory = 'M_aug'
+
+augment_images_in_directory(input_directory, output_directory)
