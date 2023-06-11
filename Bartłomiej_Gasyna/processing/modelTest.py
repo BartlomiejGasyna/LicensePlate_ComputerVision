@@ -1,20 +1,17 @@
 import tensorflow as tf
 from tensorflow import keras
 from keras.preprocessing.image import ImageDataGenerator
-from keras.models import Sequential, load_model
+from keras.models import Sequential
 from keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropout
 from sklearn.preprocessing import LabelEncoder
 import cv2
 import numpy as np
-# import os
+
 
 def inferImg(img: np.ndarray, model):
     # Define image dimensions and batch size
     image_height = int(64*1.3)
     image_width = int(48*1.4)
-
-    # Get a list of subfolders in the 'dir' directory
-    # subfolders = sorted(os.listdir('ocr_dataset'))
 
     # Create an instance of LabelEncoder
     le = LabelEncoder()
@@ -25,14 +22,6 @@ def inferImg(img: np.ndarray, model):
 
     # load Label Encoder classes
     le.classes_ = np.load('processing/classes.npy')
-
-    
-    
-    
-    # np.save('classes.npy', class_names)
-
-    # model = load_model("charModel0.h5")
-
 
 
 
@@ -53,9 +42,6 @@ def inferImg(img: np.ndarray, model):
     pred = model.predict(img)
 
     predicted_class_index = np.argmax(pred[0])
-    
-
-    # print('index: ', predicted_class_index)
 
     predicted_class = le.inverse_transform([predicted_class_index])
     print("Predicted class:", *predicted_class)

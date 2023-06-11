@@ -5,6 +5,8 @@ from pathlib import Path
 import cv2
 
 from processing.utils import perform_processing
+from tensorflow import keras
+from keras.models import load_model
 
 
 def main():

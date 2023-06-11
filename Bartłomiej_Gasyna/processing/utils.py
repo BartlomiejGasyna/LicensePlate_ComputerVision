@@ -1,13 +1,9 @@
 import numpy as np
 import cv2
 import math 
-
-
 import processing.modelTest as modelTest
-
-
 from tensorflow import keras
-from keras.models import Sequential, load_model
+from keras.models import load_model
 
 
 BLUR_MAIN = 7
@@ -258,7 +254,7 @@ def extract_letters(plate: np.ndarray):
         # cv2.destroyAllWindows()
 
 
-        # Numbers cannot be used in first part of registry plate 
+        # Numbers cannot be used in first part of registry plate # Individual tables not included
         changes1 = {'0': 'O',
                     '1': 'I',
                     '2': 'Z',
@@ -267,7 +263,7 @@ def extract_letters(plate: np.ndarray):
                     '8': 'B'
                     }
         
-        # Polish law regulates that letters B, D, I, O, Z cannot be used in second part of registry plate
+        # Polish law regulates that letters B, D, I, O, Z cannot be used in second part of registry plate # Individual tables not included
         changes2 = {'B': '8', 
                     'D': '0', 
                     'I': '1',
@@ -292,8 +288,10 @@ def extract_letters(plate: np.ndarray):
 
 def perform_processing(image: np.ndarray, brightness=BRIGHTNESS, contrast=CONTRAST, blur_c = BLUR_MAIN, padding = 0) -> str:
     brightness_list = [5, 20, 30, 50, 60]
-    contrast_list = [10, 30, 40, 50, 80, 100, 120, 140]
-    blur_list = [7, 7, 7, 7, 7, 1, 7, 1, 7]
+    # contrast_list = [10, 30, 40, 50, 80, 100, 120, 140]
+    contrast_list = [10, 30, 40, 50, 80, 100, 120, 140, 10, 30, 40, 50, 80, 100, 120, 140]
+    blur_list = [7, 7, 7, 7, 7, 7, 7, 7, 1, 1, 1, 1, 1, 1, 1, 1]
+    blur_list = [1, 1, 1, 1, 1, 1, 1, 1,7, 7, 7, 7, 7, 7, 7, 7]
     padding_list = [0, 0, 0, 10, 10, 20, 20, 30, 30]
 
     perform_processing.counter += 1
@@ -413,17 +411,19 @@ def perform_processing(image: np.ndarray, brightness=BRIGHTNESS, contrast=CONTRA
         if len(plate_number) < 4 or plate_number == 'PO12345':
             if perform_processing.counter > len(contrast_list)-1:
                 perform_processing.counter = 0
+                if plate_number == '':
+                    plate_number = 'PO12345'
             else:
                 # brightness = brightness_list[perform_processing.counter]
                 contrast = contrast_list[perform_processing.counter]
-                blur = blur_list[perform_processing.counter]
-                padding = padding_list[perform_processing.counter]
+                blur_c = blur_list[perform_processing.counter]
+                # padding = padding_list[perform_processing.counter]
                 # plate_number = perform_processing(image_raw_copy, contrast = contrast, blur_c = blur, padding = padding)
-                plate_number = perform_processing(image_raw_copy, contrast = contrast, blur_c=1)
+                plate_number = perform_processing(image_raw_copy, contrast = contrast, blur_c=blur_c)
 
 
         cv2.imshow('image', gray)
-        cv2.waitKey(1000)
+        cv2.waitKey(100)
 
 
 

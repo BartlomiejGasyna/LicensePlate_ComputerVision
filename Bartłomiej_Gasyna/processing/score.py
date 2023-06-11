@@ -1,6 +1,6 @@
 import json
 
-with open('problematic.json') as f:
+with open('results.json') as f:
     data = json.load(f)
 
 total_same_chars = 0
