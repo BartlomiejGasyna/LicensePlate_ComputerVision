@@ -41,6 +41,8 @@ The transform_corners() function takes a raw plate image as input. It applies th
 Next, the function uses the Harris method to find corners. Only the four contours closest to the rectangle's edges (RMS) are selected as corner points.
 
 Finally, a perspective transform is performed on the rectangle using these four corners, resulting in a straight view of the plate.
+
+
 ![Plate inner corners](https://github.com/BartlomiejGasyna/LicensePlate_ComputerVision/blob/main/resources/1inner_most.png)
 ![Plate actual corners detected](https://github.com/BartlomiejGasyna/LicensePlate_ComputerVision/blob/main/resources/2corners.png)
 ![](https://github.com/BartlomiejGasyna/LicensePlate_ComputerVision/blob/main/resources/3transformed.png)
