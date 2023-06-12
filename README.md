@@ -8,7 +8,7 @@ This repository utilizes OpenCV and TensorFlow for license plate recognition. It
     ├── Bartłomiej_Gasyna.py    - main script, launches recognition
     ├── processing
     │   ├── charModel0.h5       - character recognition Tensorflow model
-    │   ├── classes.npy         - ts labels saved to .npy for easy load
+    │   ├── classes.npy         - tf labels saved to .npy for easy load
     │   ├── modelTest.py        - model inference / test
     │   ├── score.py            - % score (correct characters / sum of all characters)
     │   └── utils.py            - image processing handling
