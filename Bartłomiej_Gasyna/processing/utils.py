@@ -217,8 +217,8 @@ def extract_letters(plate: np.ndarray):
 
     dst = cv2.cvtColor(dst, cv2.COLOR_BGR2GRAY)
 
-    cv2.imshow('letters', dst)
-    cv2.waitKey(1000)
+    # cv2.imshow('letters', dst)
+    # cv2.waitKey(1000)
     contours, hierarchy = cv2.findContours(dst, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
     
     contours_filtered = []
@@ -312,13 +312,10 @@ def extract_letters(plate: np.ndarray):
 
     
 
-def perform_processing(image: np.ndarray, brightness=BRIGHTNESS, contrast=CONTRAST, blur_c = BLUR_MAIN, padding = 0) -> str:
-    brightness_list = [5, 20, 30, 50, 60]
-    # contrast_list = [10, 30, 40, 50, 80, 100, 120, 140]
+def perform_processing(image: np.ndarray, contrast=CONTRAST, blur_c = BLUR_MAIN, padding = 0) -> str:
+    brightness = BRIGHTNESS
     contrast_list = [10, 30, 40, 50, 80, 100, 120, 140, 10, 30, 40, 50, 80, 100, 120, 140]
-    blur_list = [7, 7, 7, 7, 7, 7, 7, 7, 1, 1, 1, 1, 1, 1, 1, 1]
     blur_list = [1, 1, 1, 1, 1, 1, 1, 1,7, 7, 7, 7, 7, 7, 7, 7]
-    padding_list = [0, 0, 0, 10, 10, 20, 20, 30, 30]
 
 #  bez:  0.9186602870813397
 #  z:    0.9234449760765551
@@ -385,8 +382,8 @@ def perform_processing(image: np.ndarray, brightness=BRIGHTNESS, contrast=CONTRA
         img_blur = cv2.GaussianBlur(gray, (gw, gw), gs)
         g1 = cv2.GaussianBlur(img_blur, (gw1, gw1), gs1)
         g2 = cv2.GaussianBlur(img_blur, (gw2, gw2), gs2)
-        cv2.imshow('g2-g1', g2-g1)
-        cv2.waitKey()
+        # cv2.imshow('g2-g1', g2-g1)
+        # cv2.waitKey()
         ret, thg = cv2.threshold(g2-g1, 160, 255, cv2.THRESH_OTSU)
 
 
@@ -431,8 +428,8 @@ def perform_processing(image: np.ndarray, brightness=BRIGHTNESS, contrast=CONTRA
 
                     if plate_number == "":
                         continue
-                    cv2.rectangle(img_cpy, (start_x,start_y), (end_x,end_y), color, 3)
-                    cv2.rectangle(gray, (start_x,start_y), (end_x,end_y), (255, 255, 255), 3)
+                    # cv2.rectangle(img_cpy, (start_x,start_y), (end_x,end_y), color, 3)
+                    # cv2.rectangle(gray, (start_x,start_y), (end_x,end_y), (255, 255, 255), 3)
 
                     # cv2.putText(img_cpy, "rectangle "+str(x)+" , " + str(y-5), (x, y-5), cv2.FONT_HERSHEY_COMPLEX, 0.5, (0, 0, 0))
                     
@@ -445,7 +442,6 @@ def perform_processing(image: np.ndarray, brightness=BRIGHTNESS, contrast=CONTRA
                 if plate_number == '':
                     plate_number = 'PO12345'
             else:
-                # brightness = brightness_list[perform_processing.counter]
                 contrast = contrast_list[perform_processing.counter]
                 blur_c = blur_list[perform_processing.counter]
                 # padding = padding_list[perform_processing.counter]
