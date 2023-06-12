@@ -29,8 +29,8 @@ The license plate recognition process involves the following steps:
 4. Subtracting Gaussian blurs `G1` and `G2` with different kernels from each other `(G2 - G1)`, resulting in a clear view of edges.
 5. Utilizing `cv2.findContours()` and `cv2.drawContours()` to find and draw contours on the image.
 6. Checking each contour to determine if it meets the requirements for a rectangle with correct aspect ratio and area size. If so, a rectangle is found.
-
-
+![](https://github.com/BartlomiejGasyna/LicensePlate_ComputerVision/blob/main/resources/g2-g1.png)
+![](https://github.com/BartlomiejGasyna/LicensePlate_ComputerVision/blob/main/resources/0plate_detected.png)
 
 ## `transform_corners(plate)` - Transformed Plate Image
 
@@ -41,6 +41,9 @@ The transform_corners() function takes a raw plate image as input. It applies th
 Next, the function uses the Harris method to find corners. Only the four contours closest to the rectangle's edges (RMS) are selected as corner points.
 
 Finally, a perspective transform is performed on the rectangle using these four corners, resulting in a straight view of the plate.
+![Plate inner corners](https://github.com/BartlomiejGasyna/LicensePlate_ComputerVision/blob/main/resources/1inner_most.png)
+![Plate actual corners detected](https://github.com/BartlomiejGasyna/LicensePlate_ComputerVision/blob/main/resources/2corners.png)
+![](https://github.com/BartlomiejGasyna/LicensePlate_ComputerVision/blob/main/resources/3transformed.png)
 
 ## `extract_letters(transformed) - Extracting Plate Numbers`
 
@@ -56,5 +59,6 @@ The extract_letters() function first applies Gaussian blur and thresholding to t
 Contours with very small or large area sizes are also discarded. The remaining contours, which have the right size and location, may still have holes in characters like 0, 8, and 9. To fix this, the function fills in black for all contours and then selectively fills in white only for smaller contours. This ensures clear images of the character contours.
 
 Bounding boxes are computed for these contours, including a 5px padding. The bounding boxes are sorted from left to right and passed as input to the neural network. Each bounding box is processed by the network, resulting in character recognition.
-
+![](https://github.com/BartlomiejGasyna/LicensePlate_ComputerVision/blob/main/resources/4letters.png)
+![](https://github.com/BartlomiejGasyna/LicensePlate_ComputerVision/blob/main/resources/5.png)
 If a frame is not found or the letters on the frame are not interpreted, the algorithm will rerun with different parameter sets, such as contrast, main Gaussian blur value, and rotation, to improve the recognition results.
