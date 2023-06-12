@@ -1,13 +1,9 @@
 import numpy as np
 import cv2
 import math 
-
-
 import processing.modelTest as modelTest
-
-
 from tensorflow import keras
-from keras.models import Sequential, load_model
+from keras.models import load_model
 
 
 BLUR_MAIN = 7
@@ -73,8 +69,10 @@ def apply_brightness_contrast(input_img, brightness = BRIGHTNESS, contrast = CON
 
 def transform_corners(image: np.ndarray) -> np.ndarray:
     transformed = image.copy()
-    gray = cv2.cvtColor(image,cv2.COLOR_BGR2GRAY)
-
+    try:
+        gray = cv2.cvtColor(image,cv2.COLOR_BGR2GRAY)
+    except:
+        return transformed
     rt, gray = cv2.threshold(gray, 160, 255, cv2.THRESH_OTSU)
     
     contours, hierarchy = cv2.findContours(gray, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
@@ -91,7 +89,8 @@ def transform_corners(image: np.ndarray) -> np.ndarray:
 
     # Draw the innermost contour on the image
     # contours_img = cv2.drawContours(image, [inner_contour], 0, (0, 0, 255), 2)
-
+    # cv2.imshow('inner_most', contours_img)
+    # cv2.waitKey()
 
     dst = np.zeros((image.shape[0], image.shape[1], 3), dtype=np.uint8)
     dst = cv2.drawContours(dst, [inner_contour], 0, (0, 0, 255), 2)
@@ -134,13 +133,22 @@ def transform_corners(image: np.ndarray) -> np.ndarray:
     matrix = cv2.getPerspectiveTransform(best_matches, corners)
     transformed = cv2.warpPerspective(transformed, matrix, (y_end, x_end))
 
+    # Draw transformed image
+    # cv2.imshow('corners', image)    
+    # cv2.waitKey()
+
+    # Draw transformed image
     # cv2.imshow('transformed', transformed)    
+    # cv2.waitKey()
+
 
     return transformed
 
 def extract_letters(plate: np.ndarray):
-    plate = cv2.resize(plate, (1040, 228), cv2.INTER_AREA)
-
+    try:
+        plate = cv2.resize(plate, (1040, 228), cv2.INTER_AREA)
+    except:
+        return ''
     gray = cv2.cvtColor(plate,cv2.COLOR_BGR2GRAY)
     padding = 5
     new_height = gray.shape[0] + 2 * padding
@@ -206,6 +214,7 @@ def extract_letters(plate: np.ndarray):
 
 
 
+
     dst = cv2.cvtColor(dst, cv2.COLOR_BGR2GRAY)
 
     cv2.imshow('letters', dst)
@@ -222,7 +231,10 @@ def extract_letters(plate: np.ndarray):
             contours_filtered.append(contour)
 
     contours = contours_filtered
-    contours_img = cv2.drawContours(dst, contours, -1, (255,255,255), 2)
+    # contours_img = cv2.drawContours(dst, contours, -1, (0,0,0), 2)
+    # cv2.imshow('letters_bboxes', contours_img)
+    # cv2.waitKey()
+
 
     dst = cv2.bitwise_not(dst)
 
@@ -233,7 +245,21 @@ def extract_letters(plate: np.ndarray):
         boundRect.append(rect)
 
     dst = cv2.cvtColor(dst, cv2.COLOR_GRAY2BGR)
+
     boundRect = sorted(boundRect, key = lambda box: box[0])
+
+    # Draw bounding rects
+    # Iterate over the boundingRect list
+    # cv2.imshow('bounding_bboxes', dst)
+    # cv2.waitKey()
+    # for rect in boundRect:
+    #     x, y, w, h = rect
+    #     # Draw the rectangle on the image
+    #     cv2.rectangle(dst, (x, y), (x-15 + w+15, y-15 + h+15), (0, 0, 255), 2)
+    #     cv2.imshow('bounding_bboxes', dst)
+    #     cv2.waitKey(330)
+
+
     license_plate = []
     
     for i in range(len(boundRect)):
@@ -254,7 +280,7 @@ def extract_letters(plate: np.ndarray):
         # cv2.destroyAllWindows()
 
 
-        # Numbers cannot be used in first part of registry plate 
+        # Numbers cannot be used in first part of registry plate # Individual tables not included
         changes1 = {'0': 'O',
                     '1': 'I',
                     '2': 'Z',
@@ -263,7 +289,7 @@ def extract_letters(plate: np.ndarray):
                     '8': 'B'
                     }
         
-        # Polish law regulates that letters B, D, I, O, Z cannot be used in second part of registry plate
+        # Polish law regulates that letters B, D, I, O, Z cannot be used in second part of registry plate # Individual tables not included
         changes2 = {'B': '8', 
                     'D': '0', 
                     'I': '1',
@@ -286,9 +312,26 @@ def extract_letters(plate: np.ndarray):
 
     
 
-def perform_processing(image: np.ndarray, brightness=BRIGHTNESS, contrast=CONTRAST) -> str:
+def perform_processing(image: np.ndarray, brightness=BRIGHTNESS, contrast=CONTRAST, blur_c = BLUR_MAIN, padding = 0) -> str:
     brightness_list = [5, 20, 30, 50, 60]
-    contrast_list = [0, 10, 30, 40, 50, 80, 100, 120, 140]
+    # contrast_list = [10, 30, 40, 50, 80, 100, 120, 140]
+    contrast_list = [10, 30, 40, 50, 80, 100, 120, 140, 10, 30, 40, 50, 80, 100, 120, 140]
+    blur_list = [7, 7, 7, 7, 7, 7, 7, 7, 1, 1, 1, 1, 1, 1, 1, 1]
+    blur_list = [1, 1, 1, 1, 1, 1, 1, 1,7, 7, 7, 7, 7, 7, 7, 7]
+    padding_list = [0, 0, 0, 10, 10, 20, 20, 30, 30]
+
+#  bez:  0.9186602870813397
+#  z:    0.9234449760765551
+    if perform_processing.counter > 2 and perform_processing.counter < 5:
+        (h, w) = image.shape[:2]
+        (cX, cY) = (w // 2, h // 2)
+        # rotate our image by 45 degrees around the center of the image
+        rot = 5
+        if perform_processing.counter % 2:
+            rot *=-1
+        M = cv2.getRotationMatrix2D((cX, cY), rot, 1.0)
+        image = cv2.warpAffine(image, M, (w, h))
+
     perform_processing.counter += 1
     # print(f'image.shape: {image.shape}')
 
@@ -336,22 +379,14 @@ def perform_processing(image: np.ndarray, brightness=BRIGHTNESS, contrast=CONTRA
 
         gray = apply_brightness_contrast(gray, brightness, contrast)
 
-        # gray = auto_adjust_brightness_contrast(gray, intensity)
-
-        width=0 
-        height=0
-
-        start_x=0 
-        start_y=0
-        end_x=0 
-        end_y=0
-
         img_cpy = resized.copy()
-        gw, gs, gw1, gs1, gw2, gs2 = (BLUR_MAIN, SIGMA0, BLUR1, SIGMA1, BLUR2, SIGMA2)
+        gw, gs, gw1, gs1, gw2, gs2 = (blur_c, SIGMA0, BLUR1, SIGMA1, BLUR2, SIGMA2)
 
         img_blur = cv2.GaussianBlur(gray, (gw, gw), gs)
         g1 = cv2.GaussianBlur(img_blur, (gw1, gw1), gs1)
         g2 = cv2.GaussianBlur(img_blur, (gw2, gw2), gs2)
+        cv2.imshow('g2-g1', g2-g1)
+        cv2.waitKey()
         ret, thg = cv2.threshold(g2-g1, 160, 255, cv2.THRESH_OTSU)
 
 
@@ -361,6 +396,7 @@ def perform_processing(image: np.ndarray, brightness=BRIGHTNESS, contrast=CONTRA
 
         contours_img = cv2.drawContours(contours_img, contours, -1, (220, 220, 220), 1)
         # cv2.imshow('countours', contours_img)
+        # cv2.waitKey()
 
         plate_number = 'PO12345'
         for i in range(len(contours)):
@@ -385,9 +421,9 @@ def perform_processing(image: np.ndarray, brightness=BRIGHTNESS, contrast=CONTRA
                     if a < 20_000:
                         color = (220, 220, 220)     
 
-                    ex = 5
+                    ex = padding
                     plate1 = img_cpy[ start_y-ex:end_y+ex, start_x-ex:end_x+ex].copy()
-                    plate1 = img_cpy[ start_y:end_y, start_x:end_x].copy()
+                    # plate1 = img_cpy[ start_y:end_y, start_x:end_x].copy()
                     plate2 = thg[ start_y:end_y, start_x:end_x].copy()
 
                     transformed = transform_corners(plate1)
@@ -400,18 +436,25 @@ def perform_processing(image: np.ndarray, brightness=BRIGHTNESS, contrast=CONTRA
 
                     # cv2.putText(img_cpy, "rectangle "+str(x)+" , " + str(y-5), (x, y-5), cv2.FONT_HERSHEY_COMPLEX, 0.5, (0, 0, 0))
                     
-                    break
+                    if len(plate_number) > 5:
+                        break
         
         if len(plate_number) < 4 or plate_number == 'PO12345':
             if perform_processing.counter > len(contrast_list)-1:
                 perform_processing.counter = 0
+                if plate_number == '':
+                    plate_number = 'PO12345'
             else:
                 # brightness = brightness_list[perform_processing.counter]
                 contrast = contrast_list[perform_processing.counter]
-                plate_number = perform_processing(image_raw_copy, contrast=contrast)
+                blur_c = blur_list[perform_processing.counter]
+                # padding = padding_list[perform_processing.counter]
+                # plate_number = perform_processing(image_raw_copy, contrast = contrast, blur_c = blur, padding = padding)
+                plate_number = perform_processing(image_raw_copy, contrast = contrast, blur_c=blur_c)
 
-        cv2.imshow('image', gray)
-        cv2.waitKey(1000)
+
+        # cv2.imshow('01_plate_detected', gray)
+        # cv2.waitKey()
 
 
 
